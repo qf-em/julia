@@ -145,7 +145,7 @@ month, etc.` In the range 1:5.
 """
 function dayofweekofmonth(dt::TimeType)
     d = day(dt)
-    return d < 8 ? 1 :d < 15 ? 2 : d < 22 ? 3 : d < 29 ? 4 : 5
+    return d < 8 ? 1 : d < 15 ? 2 : d < 22 ? 3 : d < 29 ? 4 : 5
 end
 
 # Total number of a day of week in the month
