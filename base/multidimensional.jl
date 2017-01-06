@@ -215,6 +215,16 @@ end
 end
 index_ndims() = ()
 
+# combined dimensionality of all indices
+# rather than returning N, it returns an NTuple{N,Bool} so the result is inferrable
+@inline index_dimsum(i1, I...) = (index_dimsum(I...)...)
+@inline index_dimsum(::Colon, I...) = (true, index_dimsum(I...)...)
+@inline index_dimsum(::AbstractArray{Bool}, I...) = (true, index_dimsum(I...)...)
+@inline function index_dimsum{_,N}(::AbstractArray{_,N}, I...)
+    (ntuple(x->true, Val{N})..., index_dimsum(I...)...)
+end
+index_dimsum() = ()
+
 # Recursively compute the lengths of a list of indices, without dropping scalars
 # These need to be inlined for more than 3 indexes
 # Trailing CartesianIndex{0}s and arrays thereof are strange when used as
@@ -493,7 +503,7 @@ rcum_promote_type{T}(op, ::Type{T}) = T
 rcum_promote_type{T,N}(op, ::Type{Array{T,N}}) = Array{rcum_promote_type(op,T), N}
 
 # accumulate_pairwise slightly slower then accumulate, but more numerically
-# stable in certain situtations (e.g. sums).
+# stable in certain situations (e.g. sums).
 # it does double the number of operations compared to accumulate,
 # though for cheap operations like + this does not have much impact (20%)
 function _accumulate_pairwise!{T, Op}(op::Op, c::AbstractVector{T}, v::AbstractVector, s, i1, n)::T
@@ -567,6 +577,13 @@ function cumsum{T}(A::AbstractArray{T}, axis::Integer=1)
     out = similar(A, rcum_promote_type(+, T))
     cumsum!(out, A, axis)
 end
+
+"""
+    cumsum!(B, A, dim::Integer=1)
+
+Cumulative sum of `A` along a dimension, storing the result in `B`. The dimension defaults
+to 1. See also [`cumsum`](@ref).
+"""
 cumsum!(B, A, axis::Integer=1) = accumulate!(+, B, A, axis)
 
 """
@@ -594,6 +611,13 @@ julia> cumprod(a,2)
 ```
 """
 cumprod(A::AbstractArray, axis::Integer=1) = accumulate(*, A, axis)
+
+"""
+    cumprod!(B, A, dim::Integer=1)
+
+Cumulative product of `A` along a dimension, storing the result in `B`. The dimension defaults to 1.
+See also [`cumprod`](@ref).
+"""
 cumprod!(B, A, axis::Integer=1) = accumulate!(*, B, A, axis)
 
 """
@@ -1150,6 +1174,39 @@ hash(x::Prehashed) = x.hash
 Returns an array containing only the unique elements of the iterable `itr`, in
 the order that the first of each set of equivalent elements originally appears.
 If `dim` is specified, returns unique regions of the array `itr` along `dim`.
+
+```jldoctest
+julia> A = map(isodd, reshape(collect(1:8), (2,2,2)))
+2×2×2 Array{Bool,3}:
+[:, :, 1] =
+  true   true
+ false  false
+
+[:, :, 2] =
+  true   true
+ false  false
+
+julia> unique(A)
+2-element Array{Bool,1}:
+  true
+ false
+
+julia> unique(A, 2)
+2×1×2 Array{Bool,3}:
+[:, :, 1] =
+  true
+ false
+
+[:, :, 2] =
+  true
+ false
+
+julia> unique(A, 3)
+2×2×1 Array{Bool,3}:
+[:, :, 1] =
+  true   true
+ false  false
+```
 """
 @generated function unique{T,N}(A::AbstractArray{T,N}, dim::Int)
     inds = inds -> zeros(UInt, inds)
@@ -1227,9 +1284,30 @@ indexoffset(::Colon) = 0
 
 
 """
-    extrema(A,dims) -> Array{Tuple}
+    extrema(A, dims) -> Array{Tuple}
 
 Compute the minimum and maximum elements of an array over the given dimensions.
+
+# Example
+```jldoctest
+julia> A = reshape(collect(1:2:16), (2,2,2))
+2×2×2 Array{Int64,3}:
+[:, :, 1] =
+ 1  5
+ 3  7
+
+[:, :, 2] =
+  9  13
+ 11  15
+
+julia> extrema(A, (1,2))
+1×1×2 Array{Tuple{Int64,Int64},3}:
+[:, :, 1] =
+ (1,7)
+
+[:, :, 2] =
+ (9,15)
+```
 """
 function extrema(A::AbstractArray, dims)
     sz = [size(A)...]

@@ -78,7 +78,7 @@ Symbol(x...) = Symbol(string(x...))
 # specific array types etc.
 #  --Here, just define fallback routines for broadcasting with no arguments
 broadcast(f) = f()
-broadcast!(f, X::AbstractArray) = fill!(X, f())
+broadcast!(f, X::AbstractArray) = (@inbounds for I in eachindex(X); X[I] = f(); end; X)
 
 # array structures
 include("array.jl")
@@ -158,6 +158,12 @@ include("io.jl")
 include("iostream.jl")
 include("iobuffer.jl")
 
+# define MIME"foo/bar" early so that we can overload 3-arg show
+immutable MIME{mime} end
+macro MIME_str(s)
+    :(MIME{$(Expr(:quote, Symbol(s)))})
+end
+
 # strings & printing
 include("char.jl")
 include("intfuncs.jl")
@@ -173,15 +179,16 @@ using .Cartesian
 include("multidimensional.jl")
 include("permuteddimsarray.jl")
 using .PermutedDimsArrays
+
+# nullable types
+include("nullable.jl")
+
 include("broadcast.jl")
 importall .Broadcast
 
 # base64 conversions (need broadcast)
 include("base64.jl")
 importall .Base64
-
-# nullable types
-include("nullable.jl")
 
 # version
 include("version.jl")
@@ -237,7 +244,6 @@ include("reducedim.jl")  # macros in this file relies on string.jl
 # basic data structures
 include("ordering.jl")
 importall .Order
-include("collections.jl")
 
 # Combinatorics
 include("sort.jl")
@@ -310,6 +316,10 @@ include("REPLCompletions.jl")
 include("REPL.jl")
 include("client.jl")
 
+# Stack frames and traces
+include("stacktraces.jl")
+importall .StackTraces
+
 # misc useful functions & macros
 include("util.jl")
 
@@ -331,10 +341,6 @@ importall .DFT
 include("dsp.jl")
 importall .DSP
 
-# Numerical integration
-include("quadgk.jl")
-importall .QuadGK
-
 # Fast math
 include("fastmath.jl")
 importall .FastMath
@@ -344,10 +350,6 @@ include("libgit2/libgit2.jl")
 
 # package manager
 include("pkg/pkg.jl")
-
-# Stack frames and traces
-include("stacktraces.jl")
-importall .StackTraces
 
 # profiler
 include("profile.jl")

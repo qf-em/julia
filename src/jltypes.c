@@ -68,7 +68,7 @@ JL_DLLEXPORT jl_value_t *jl_emptytuple=NULL;
 jl_svec_t *jl_emptysvec;
 jl_value_t *jl_nothing;
 
-const jl_cgparams_t jl_default_cgparams = {1, 1, 1, 1, 1, 1, 1};
+jl_cgparams_t jl_default_cgparams = {1, 1, 1, 1, 1, 1, 1, {NULL, NULL, NULL}};
 
 // --- type properties and predicates ---
 
@@ -3523,6 +3523,10 @@ void jl_init_types(void)
     jl_methtable_type = jl_new_uninitialized_datatype();
     jl_nothing = jl_gc_alloc(ptls, 0, NULL);
 
+    jl_default_cgparams.hooks.module_setup = jl_nothing;
+    jl_default_cgparams.hooks.module_activation = jl_nothing;
+    jl_default_cgparams.hooks.raise_exception = jl_nothing;
+
     jl_emptysvec = (jl_svec_t*)jl_gc_alloc(ptls, sizeof(void*),
                                            jl_simplevector_type);
     jl_svec_set_len_unsafe(jl_emptysvec, 0);
@@ -3889,7 +3893,7 @@ void jl_init_types(void)
     jl_method_type =
         jl_new_datatype(jl_symbol("Method"),
                         jl_any_type, jl_emptysvec,
-                        jl_svec(20,
+                        jl_svec(21,
                                 jl_symbol("name"),
                                 jl_symbol("module"),
                                 jl_symbol("file"),
@@ -3903,6 +3907,7 @@ void jl_init_types(void)
                                 jl_symbol("sparam_syms"),
                                 jl_symbol("source"),
                                 jl_symbol("unspecialized"),
+                                jl_symbol("generator"),
                                 jl_symbol("roots"),
                                 jl_symbol("invokes"),
                                 jl_symbol("nargs"),
@@ -3910,7 +3915,7 @@ void jl_init_types(void)
                                 jl_symbol("isva"),
                                 jl_symbol("isstaged"),
                                 jl_symbol("needs_sparam_vals_ducttape")),
-                        jl_svec(20,
+                        jl_svec(21,
                                 jl_sym_type,
                                 jl_module_type,
                                 jl_sym_type,
@@ -3923,6 +3928,7 @@ void jl_init_types(void)
                                 jl_any_type, // TypeMap
                                 jl_simplevector_type,
                                 jl_code_info_type,
+                                jl_any_type, // jl_method_instance_type
                                 jl_any_type, // jl_method_instance_type
                                 jl_array_any_type,
                                 jl_any_type,
@@ -4033,6 +4039,7 @@ void jl_init_types(void)
 #endif
     jl_svecset(jl_methtable_type->types, 8, jl_int32_type); // uint32_t
     jl_svecset(jl_method_type->types, 12, jl_method_instance_type);
+    jl_svecset(jl_method_type->types, 13, jl_method_instance_type);
     jl_svecset(jl_method_instance_type->types, 12, jl_voidpointer_type);
     jl_svecset(jl_method_instance_type->types, 13, jl_voidpointer_type);
     jl_svecset(jl_method_instance_type->types, 14, jl_voidpointer_type);

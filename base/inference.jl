@@ -330,6 +330,10 @@ add_tfunc(lt_float, 2, 2, cmp_tfunc)
 add_tfunc(le_float, 2, 2, cmp_tfunc)
 add_tfunc(fpiseq, 2, 2, cmp_tfunc)
 add_tfunc(fpislt, 2, 2, cmp_tfunc)
+add_tfunc(eq_float_fast, 2, 2, cmp_tfunc)
+add_tfunc(ne_float_fast, 2, 2, cmp_tfunc)
+add_tfunc(lt_float_fast, 2, 2, cmp_tfunc)
+add_tfunc(le_float_fast, 2, 2, cmp_tfunc)
 
 chk_tfunc = (x,y) -> Tuple{widenconst(x),Bool}
 add_tfunc(checked_sadd_int, 2, 2, chk_tfunc)
@@ -1095,22 +1099,23 @@ function abstract_apply(af::ANY, fargs, aargtypes::Vector{Any}, vtypes::VarTable
 end
 
 function pure_eval_call(f::ANY, argtypes::ANY, atype::ANY, vtypes::VarTable, sv::InferenceState)
-    for i = 2:length(argtypes)
-        a = argtypes[i]
-        if !(isa(a,Const) || isconstType(a,false))
-            return false
-        end
-    end
-
     if f === return_type && length(argtypes) == 3
         # NOTE: only considering calls to return_type without InferenceParams arg
         tt = argtypes[3]
-        if isType(tt)
+        af = argtypes[2]
+        af_isconst = isa(af, Const) || isconstType(af, false)
+        if isconstType(tt, false) &&
+            (af_isconst || (isleaftype(af) &&
+                            !(af <: Builtin) && !(af <: IntrinsicFunction)))
             af_argtype = tt.parameters[1]
             if af_argtype <: Tuple && isa(af_argtype, DataType)
-                af = argtypes[2]
-                rt = abstract_call(isa(af,Const) ? af.val : af.parameters[1],
-                                   (), Any[argtypes[2], af_argtype.parameters...], vtypes, sv)
+                argtypes_vec = Any[af, af_argtype.parameters...]
+                if af_isconst
+                    rt = abstract_call(isa(af,Const) ? af.val : af.parameters[1],
+                                       (), argtypes_vec, vtypes, sv)
+                else
+                    rt = abstract_call_gf_by_type(nothing, argtypes_to_type(argtypes_vec), sv)
+                end
                 if isa(rt,Const)
                     return Type{widenconst(rt)}
                 elseif isleaftype(rt) || isleaftype(af_argtype) || rt === Bottom
@@ -1119,6 +1124,13 @@ function pure_eval_call(f::ANY, argtypes::ANY, atype::ANY, vtypes::VarTable, sv:
                     return Type{TypeVar(:R, rt)}
                 end
             end
+        end
+    end
+
+    for i = 2:length(argtypes)
+        a = argtypes[i]
+        if !(isa(a,Const) || isconstType(a,false))
+            return false
         end
     end
 

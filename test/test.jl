@@ -395,3 +395,30 @@ end
 end
 @test_throws ErrorException @testset "$(error())" begin
 end
+
+io = IOBuffer()
+@test (print(io, Base.Test.Error(:test_error, "woot", 5, backtrace())); 1) == 1
+str = String(take!(io))
+@test contains(str, "test.jl")
+@test !contains(str, "boot.jl")
+
+let
+    io = IOBuffer()
+    exc = Test.TestSetException(1,2,3,4,Vector{Union{Base.Test.Error, Base.Test.Fail}}())
+    Base.showerror(io, exc, backtrace())
+    @test !contains(String(take!(io)), "backtrace()")
+end
+
+# 19750
+let
+    io = IOBuffer()
+    exc = Test.TestSetException(1,2,3,4,Vector{Union{Base.Test.Error, Base.Test.Fail}}())
+    Base.showerror(io, exc, backtrace())
+    @test !contains(String(take!(io)), "backtrace()")
+
+    exc = Test.FallbackTestSetException("msg")
+    Base.showerror(io, exc, backtrace())
+    str = String(take!(io))
+    @test contains(str, "msg")
+    @test !contains(str, "backtrace()")
+end

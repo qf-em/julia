@@ -16,11 +16,35 @@ module Test
 export @test, @test_throws, @test_broken, @test_skip
 export @testset
 # Legacy approximate testing functions, yet to be included
-export @test_approx_eq, @test_approx_eq_eps, @inferred
+export @test_approx_eq_eps, @inferred
 export detect_ambiguities
 export GenericString
 
 #-----------------------------------------------------------------------
+
+# Backtrace utility functions
+function ip_matches_func_and_name(ip, func::Symbol, dir::String, file::String)
+    for fr in StackTraces.lookup(ip)
+        if fr === StackTraces.UNKNOWN || fr.from_c
+            return false
+        end
+        path = string(fr.file)
+        fr.func == func && dirname(path) == dir && basename(path) == file && return true
+    end
+    return false
+end
+
+function scrub_backtrace(bt)
+    do_test_ind = findfirst(addr->ip_matches_func_and_name(addr, :do_test, ".", "test.jl"), bt)
+    if do_test_ind != 0 && length(bt) > do_test_ind
+        bt = bt[do_test_ind + 1:end]
+    end
+    name_ind = findfirst(addr->ip_matches_func_and_name(addr, Symbol("macro expansion;"), ".", "test.jl"), bt)
+    if name_ind != 0 && length(bt) != 0
+        bt = bt[1:name_ind]
+    end
+    return bt
+end
 
 """
     Result
@@ -111,7 +135,7 @@ function Base.show(io::IO, t::Error)
         println(io, "  Test threw an exception of type ", typeof(t.value))
         println(io, "  Expression: ", t.orig_expr)
         # Capture error message and indent to match
-        errmsg = sprint(showerror, t.value, t.backtrace)
+        errmsg = sprint(showerror, t.value, scrub_backtrace(t.backtrace))
         print(io, join(map(line->string("  ",line),
                             split(errmsg, "\n")), "\n"))
     elseif t.test_type == :test_unbroken
@@ -382,6 +406,10 @@ function Base.show(io::IO, ex::TestSetException)
     print(io, ex.broken, " broken.")
 end
 
+function Base.showerror(io::IO, ex::TestSetException, bt; backtrace=true)
+    print_with_color(Base.error_color(), io, string(ex))
+end
+
 #-----------------------------------------------------------------------
 
 """
@@ -393,12 +421,20 @@ immutable FallbackTestSet <: AbstractTestSet
 end
 fallback_testset = FallbackTestSet()
 
+type FallbackTestSetException <: Exception
+    msg::String
+end
+
+function Base.showerror(io::IO, ex::FallbackTestSetException, bt; backtrace=true)
+    print_with_color(Base.error_color(), io, ex.msg)
+end
+
 # Records nothing, and throws an error immediately whenever a Fail or
 # Error occurs. Takes no action in the event of a Pass or Broken result
 record(ts::FallbackTestSet, t::Union{Pass,Broken}) = t
 function record(ts::FallbackTestSet, t::Union{Fail,Error})
     println(t)
-    error("There was an error during testing")
+    throw(FallbackTestSetException("There was an error during testing"))
 end
 # We don't need to do anything as we don't record anything
 finish(ts::FallbackTestSet) = ts
@@ -430,7 +466,7 @@ function record(ts::DefaultTestSet, t::Union{Fail, Error})
         print(t)
         # don't print the backtrace for Errors because it gets printed in the show
         # method
-        isa(t, Error) || Base.show_backtrace(STDOUT, backtrace())
+        isa(t, Error) || Base.show_backtrace(STDOUT, scrub_backtrace(backtrace()))
         println()
     end
     push!(ts.results, t)
@@ -928,12 +964,15 @@ end
 """
     @test_approx_eq(a, b)
 
-Test two floating point numbers `a` and `b` for equality taking into account
-small numerical errors.
+Deprecated. Test two floating point numbers `a` and `b` for equality taking into
+account small numerical errors.
 """
 macro test_approx_eq(a, b)
+    Base.depwarn(string("@test_approx_eq is deprecated, use `@test ", a, " ≈ ", b, "` instead"),
+                 Symbol("@test_approx_eq"))
     :(test_approx_eq($(esc(a)), $(esc(b)), $(string(a)), $(string(b))))
 end
+export @test_approx_eq
 
 _args_and_call(args...; kwargs...) = (args[1:end-1], kwargs, args[end](args[1:end-1]...; kwargs...))
 """
@@ -972,7 +1011,8 @@ Body:
 
 julia> @inferred f(1,2,3)
 ERROR: return type Int64 does not match inferred return type Union{Float64,Int64}
- in error(::String) at ./error.jl:21
+Stacktrace:
+ [1] error(::String) at ./error.jl:21
 
 julia> @inferred max(1,2)
 2

@@ -34,6 +34,9 @@ B = [true true false]
 @test isa([:a=>1, :b=>2.0], Vector{Pair{Symbol,Float64}})
 @test isa(["a"=>1, :b=>2.0], Vector{Pair{Any,Float64}})
 
+# Infix `isa`
+@test 1 isa Integer
+
 p = 1=>:foo
 @test first(p) == 1
 @test last(p)  == :foo
@@ -67,4 +70,22 @@ let xs = [[i:i+4;] for i in 1:10]
     for n in 2:10
         @test max.(xs[1:n]...) == [n:n+4;]
     end
+end
+
+# issue #19714
+immutable T19714 <: Integer end
+Base.float(::T19714) = 19714.0
+Base.:/(::T19714, ::T19714) = T19714()
+Base.convert(::Type{T19714}, ::Int) = T19714()
+Base.promote_rule(::Type{T19714}, ::Type{Int}) = T19714
+@test T19714()/1 === 1/T19714() === T19714()
+
+# pr #17155
+@testset "function composition" begin
+    @test (uppercase∘hex)(239487) == "3A77F"
+end
+@testset "function negation" begin
+    str = randstring(20)
+    @test filter(!isupper, str) == replace(str, r"[A-Z]", "")
+    @test filter(!islower, str) == replace(str, r"[a-z]", "")
 end

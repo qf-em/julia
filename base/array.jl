@@ -560,6 +560,24 @@ function append!{T}(a::Array{T,1}, items::AbstractVector)
     return a
 end
 
+append!(a::Vector, iter) = _append!(a, iteratorsize(iter), iter)
+
+function _append!(a, ::HasLength, iter)
+    n = length(a)
+    resize!(a, n+length(iter))
+    @inbounds for (i,item) in zip(n+1:length(a), iter)
+        a[i] = item
+    end
+    a
+end
+
+function _append!(a, ::IteratorSize, iter)
+    for item in iter
+        push!(a, item)
+    end
+    a
+end
+
 """
     prepend!(a::Vector, items) -> collection
 
@@ -737,7 +755,8 @@ julia> deleteat!([6, 5, 4, 3, 2, 1], 1:2:5)
 
 julia> deleteat!([6, 5, 4, 3, 2, 1], (2, 2))
 ERROR: ArgumentError: indices must be unique and sorted
- in deleteat!(::Array{Int64,1}, ::Tuple{Int64,Int64}) at ./array.jl:747
+Stacktrace:
+ [1] deleteat!(::Array{Int64,1}, ::Tuple{Int64,Int64}) at ./array.jl:748
 ```
 """
 function deleteat!(a::Vector, inds)

@@ -517,11 +517,29 @@ isnan(x::AbstractFloat) = x != x
 isnan(x::Float16)    = reinterpret(UInt16,x)&0x7fff  > 0x7c00
 isnan(x::Real) = false
 
+"""
+    isfinite(f) -> Bool
+
+Test whether a number is finite.
+
+```jldoctest
+julia> isfinite(5)
+true
+
+julia> isfinite(NaN32)
+false
+```
+"""
 isfinite(x::AbstractFloat) = x - x == 0
 isfinite(x::Float16) = reinterpret(UInt16,x)&0x7c00 != 0x7c00
 isfinite(x::Real) = decompose(x)[3] != 0
 isfinite(x::Integer) = true
 
+"""
+    isinf(f) -> Bool
+
+Test whether a number is infinite.
+"""
 isinf(x::Real) = !isnan(x) & !isfinite(x)
 
 ## hashing small, built-in numeric types ##
@@ -735,7 +753,7 @@ function float{T}(A::AbstractArray{T})
     convert(AbstractArray{typeof(float(zero(T)))}, A)
 end
 
-for fn in (:float,:big)
+for fn in (:float,)
     @eval begin
         $fn(r::StepRange) = $fn(r.start):$fn(r.step):$fn(last(r))
         $fn(r::UnitRange) = $fn(r.start):$fn(last(r))
@@ -748,5 +766,13 @@ for fn in (:float,:big)
     end
 end
 
-big{T<:AbstractFloat,N}(x::AbstractArray{T,N}) = convert(AbstractArray{BigFloat,N}, x)
-big{T<:Integer,N}(x::AbstractArray{T,N}) = convert(AbstractArray{BigInt,N}, x)
+# big, broadcast over arrays
+# TODO: do the definitions below primarily pertaining to integers belong in float.jl?
+function big end # no prior definitions of big in sysimg.jl, necessitating this
+broadcast(::typeof(big), r::UnitRange) = big(r.start):big(last(r))
+broadcast(::typeof(big), r::StepRange) = big(r.start):big(r.step):big(last(r))
+broadcast(::typeof(big), r::FloatRange) = FloatRange(big(r.start), big(r.step), r.len, big(r.divisor))
+function broadcast(::typeof(big), r::LinSpace)
+    big(r.len) == r.len || throw(ArgumentError(string(r, ": too long for ", big)))
+    LinSpace(big(r.start), big(r.stop), big(r.len), big(r.divisor))
+end

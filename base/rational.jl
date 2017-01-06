@@ -19,6 +19,11 @@ function divgcd(x::Integer,y::Integer)
     div(x,g), div(y,g)
 end
 
+"""
+    //(num, den)
+
+Divide two integers or rational numbers, giving a `Rational` result.
+"""
 //(n::Integer,  d::Integer ) = Rational(n,d)
 
 function //(x::Rational, y::Integer )
@@ -80,7 +85,6 @@ convert(::Type{Rational}, x::Float64) = convert(Rational{Int64}, x)
 convert(::Type{Rational}, x::Float32) = convert(Rational{Int}, x)
 
 big{T<:Integer}(z::Complex{Rational{T}}) = Complex{Rational{BigInt}}(z)
-big{T<:Integer,N}(x::AbstractArray{Complex{Rational{T}},N}) = convert(AbstractArray{Complex{Rational{BigInt}},N}, x)
 
 promote_rule{T<:Integer,S<:Integer}(::Type{Rational{T}}, ::Type{S}) = Rational{promote_type(T,S)}
 promote_rule{T<:Integer,S<:Integer}(::Type{Rational{T}}, ::Type{Rational{S}}) = Rational{promote_type(T,S)}

@@ -2,7 +2,6 @@
 
 export
 # Modules
-    Collections,
     FFTW,
     Meta,
     Operators,
@@ -89,7 +88,6 @@ export
     Regex,
     RegexMatch,
     RemoteChannel,
-    RepString,
     RevString,
     RoundFromZero,
     RoundDown,
@@ -233,6 +231,7 @@ export
     ~,
     :,
     =>,
+    ∘,
     A_ldiv_B!,
     A_ldiv_Bc,
     A_ldiv_Bt,
@@ -430,13 +429,14 @@ export
     ≉,
 
 # specfun
-    airy,
     airyai,
     airyaiprime,
     airybi,
     airybiprime,
-    airyprime,
-    airyx,
+    airyaix,
+    airyaiprimex,
+    airybix,
+    airybiprimex,
     besselh,
     besselhx,
     besseli,
@@ -462,7 +462,6 @@ export
     zeta,
 
 # arrays
-    bitbroadcast,
     broadcast!,
     broadcast,
     broadcast_getindex,
@@ -809,6 +808,7 @@ export
     isxdigit,
     join,
     lcfirst,
+    logging,
     lowercase,
     lpad,
     lstrip,
@@ -925,9 +925,6 @@ export
     plan_rfft,
     rfft,
     xcorr,
-
-# numerical integration
-    quadgk,
 
 # iteration
     done,
