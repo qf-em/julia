@@ -4,6 +4,35 @@ module TridiagTest
 using Base.Test
 debug = false
 
+# Test approximate equality of vectors or columns of matrices modulo floating
+# point roundoff and phase (sign) differences.
+#
+# This function is designed to test for equality between vectors of floating point
+# numbers when the vectors are defined only up to a global phase or sign, such as
+# normalized eigenvectors or singular vectors. The global phase is usually
+# defined consistently, but may occasionally change due to small differences in
+# floating point rounding noise or rounding modes, or through the use of
+# different conventions in different algorithms. As a result, most tests checking
+# such vectors have to detect and discard such overall phase differences.
+#
+# Inputs:
+#     a, b:: StridedVecOrMat to be compared
+#     err :: Default: m^3*(eps(S)+eps(T)), where m is the number of rows
+#
+# Raises an error if any columnwise vector norm exceeds err. Otherwise, returns
+# nothing.
+isdefined(:test_approx_eq_modphase) ||
+function test_approx_eq_modphase{S<:Real,T<:Real}(
+        a::StridedVecOrMat{S}, b::StridedVecOrMat{T}, err=nothing)
+    @test indices(a,1) == indices(b,1) && indices(a,2) == indices(b,2)
+    m = length(indices(a,1))
+    err === nothing && (err=m^3*(eps(S)+eps(T)))
+    for i in indices(a,2)
+        v1, v2 = a[:, i], b[:, i]
+        @test min(abs(norm(v1-v2)),abs(norm(v1+v2))) ≈ 0.0 atol=err
+    end
+end
+
 # basic tridiagonal operations
 n = 5
 
@@ -138,7 +167,7 @@ for elty in (Float32, Float64, Complex64, Complex128, Int)
         @test abs.(VT'Vecs) ≈ eye(elty, n)
         @test eigvecs(Ts) == eigvecs(Fs)
         #call to LAPACK.stein here
-        Test.test_approx_eq_modphase(eigvecs(Ts,eigvals(Ts)),eigvecs(Fs))
+        test_approx_eq_modphase(eigvecs(Ts,eigvals(Ts)),eigvecs(Fs))
     elseif elty != Int
         # check that undef is determined accurately even if type inference
         # bails out due to the number of try/catch blocks in this code.
@@ -313,13 +342,13 @@ let n = 12 #Size of matrix problem to test
             debug && println("stegr! call with index range")
             F = eigfact(SymTridiagonal(a, b),1:2)
             fF = eigfact(Symmetric(Array(SymTridiagonal(a, b))),1:2)
-            Test.test_approx_eq_modphase(F[:vectors], fF[:vectors])
+            test_approx_eq_modphase(F[:vectors], fF[:vectors])
             @test F[:values] ≈ fF[:values]
 
             debug && println("stegr! call with value range")
             F = eigfact(SymTridiagonal(a, b),0.0,1.0)
             fF = eigfact(Symmetric(Array(SymTridiagonal(a, b))),0.0,1.0)
-            Test.test_approx_eq_modphase(F[:vectors], fF[:vectors])
+            test_approx_eq_modphase(F[:vectors], fF[:vectors])
             @test F[:values] ≈ fF[:values]
         end
 

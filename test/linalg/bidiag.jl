@@ -3,6 +3,35 @@
 using Base.Test
 import Base.LinAlg: BlasReal, BlasFloat
 
+# Test approximate equality of vectors or columns of matrices modulo floating
+# point roundoff and phase (sign) differences.
+#
+# This function is designed to test for equality between vectors of floating point
+# numbers when the vectors are defined only up to a global phase or sign, such as
+# normalized eigenvectors or singular vectors. The global phase is usually
+# defined consistently, but may occasionally change due to small differences in
+# floating point rounding noise or rounding modes, or through the use of
+# different conventions in different algorithms. As a result, most tests checking
+# such vectors have to detect and discard such overall phase differences.
+#
+# Inputs:
+#     a, b:: StridedVecOrMat to be compared
+#     err :: Default: m^3*(eps(S)+eps(T)), where m is the number of rows
+#
+# Raises an error if any columnwise vector norm exceeds err. Otherwise, returns
+# nothing.
+isdefined(:test_approx_eq_modphase) ||
+function test_approx_eq_modphase{S<:Real,T<:Real}(
+        a::StridedVecOrMat{S}, b::StridedVecOrMat{T}, err=nothing)
+    @test indices(a,1) == indices(b,1) && indices(a,2) == indices(b,2)
+    m = length(indices(a,1))
+    err === nothing && (err=m^3*(eps(S)+eps(T)))
+    for i in indices(a,2)
+        v1, v2 = a[:, i], b[:, i]
+        @test min(abs(norm(v1-v2)),abs(norm(v1+v2))) ≈ 0.0 atol=err
+    end
+end
+
 n = 10 #Size of test matrix
 srand(1)
 
@@ -182,7 +211,7 @@ srand(1)
                 d2, v2 = eig(map(elty<:Complex ? Complex128 : Float64,Tfull))
                 @test (isupper ? d1 : reverse(d1)) ≈ d2
                 if elty <: Real
-                    Test.test_approx_eq_modphase(v1, isupper ? v2 : v2[:,n:-1:1])
+                    test_approx_eq_modphase(v1, isupper ? v2 : v2[:,n:-1:1])
                 end
             end
         end
@@ -195,8 +224,8 @@ srand(1)
                 u2, d2, v2 = svd(T)
                 @test d1 ≈ d2
                 if elty <: Real
-                    Test.test_approx_eq_modphase(u1, u2)
-                    Test.test_approx_eq_modphase(v1, v2)
+                    test_approx_eq_modphase(u1, u2)
+                    test_approx_eq_modphase(v1, v2)
                 end
                 @test 0 ≈ vecnorm(u2*diagm(d2)*v2'-Tfull) atol=n*max(n^2*eps(relty),vecnorm(u1*diagm(d1)*v1'-Tfull))
                 @inferred svdvals(T)

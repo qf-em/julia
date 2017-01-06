@@ -16,7 +16,7 @@ module Test
 export @test, @test_throws, @test_broken, @test_skip
 export @testset
 # Legacy approximate testing functions, yet to be included
-export @test_approx_eq_eps, @inferred
+export @inferred
 export detect_ambiguities
 export GenericString
 
@@ -953,6 +953,8 @@ end
 #-----------------------------------------------------------------------
 # Legacy approximate testing functions, yet to be included
 
+# BEGIN TODO: deprecated in 0.6, delete in 1.0
+# vvv
 approx_full(x::AbstractArray) = x
 approx_full(x::Number) = x
 approx_full(x) = full(x)
@@ -999,8 +1001,11 @@ Test two floating point numbers `a` and `b` for equality taking into account
 a margin of tolerance given by `tol`.
 """
 macro test_approx_eq_eps(a, b, c)
+    Base.depwarn(string("@test_approx_eq_eps is deprecated, use `@test ", a, " ≈ ", b, " atol=", c, "` instead"),
+                 Symbol("@test_approx_eq_eps"))
     :(test_approx_eq($(esc(a)), $(esc(b)), $(esc(c)), $(string(a)), $(string(b))))
 end
+export @test_approx_eq_eps
 
 """
     @test_approx_eq(a, b)
@@ -1014,6 +1019,8 @@ macro test_approx_eq(a, b)
     :(test_approx_eq($(esc(a)), $(esc(b)), $(string(a)), $(string(b))))
 end
 export @test_approx_eq
+# ^^^
+# END TODO
 
 _args_and_call(args...; kwargs...) = (args[1:end-1], kwargs, args[end](args[1:end-1]...; kwargs...))
 """
@@ -1089,34 +1096,6 @@ macro inferred(ex)
             result
         end
     end)
-end
-
-# Test approximate equality of vectors or columns of matrices modulo floating
-# point roundoff and phase (sign) differences.
-#
-# This function is designed to test for equality between vectors of floating point
-# numbers when the vectors are defined only up to a global phase or sign, such as
-# normalized eigenvectors or singular vectors. The global phase is usually
-# defined consistently, but may occasionally change due to small differences in
-# floating point rounding noise or rounding modes, or through the use of
-# different conventions in different algorithms. As a result, most tests checking
-# such vectors have to detect and discard such overall phase differences.
-#
-# Inputs:
-#     a, b:: StridedVecOrMat to be compared
-#     err :: Default: m^3*(eps(S)+eps(T)), where m is the number of rows
-#
-# Raises an error if any columnwise vector norm exceeds err. Otherwise, returns
-# nothing.
-function test_approx_eq_modphase{S<:Real,T<:Real}(
-        a::StridedVecOrMat{S}, b::StridedVecOrMat{T}, err=nothing)
-    @test indices(a,1) == indices(b,1) && indices(a,2) == indices(b,2)
-    m = length(indices(a,1))
-    err === nothing && (err=m^3*(eps(S)+eps(T)))
-    for i in indices(a,2)
-        v1, v2 = a[:, i], b[:, i]
-        @test_approx_eq_eps min(abs(norm(v1-v2)),abs(norm(v1+v2))) 0.0 err
-    end
 end
 
 """
