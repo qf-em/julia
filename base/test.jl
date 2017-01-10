@@ -239,7 +239,7 @@ is a call using infix syntax such as approximate comparisons:
     @test a ≈ b atol=ε
 
 This is equivalent to the uglier test `@test ≈(a, b, atol=ε)`.
-It is an error or supply more than one expression unless the first
+It is an error to supply more than one expression unless the first
 is a call expression and the rest are assignments (`k=v`).
 """
 macro test(ex, kws...)
